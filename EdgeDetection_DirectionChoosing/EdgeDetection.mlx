@@ -1,0 +1,102 @@
+vidReader=vision.VideoFileReader('line.mp4','VideoOutputDataType','Double');
+vidPlayer=vision.DeployableVideoPlayer;
+flag=0,turn=1;
+prompt = {'Enter number of turns.'};
+dlgtitle = 'Turns';
+answer= inputdlg(prompt,dlgtitle)
+answer2 = str2num(answer{1})
+num=answer2
+cell=zeros(1,num)
+for p=1:1:num
+     answer = questdlg('Where do you want to go now?', ...
+	'Direction', ...
+	'Left','Right','Right');
+% Handle response
+switch answer
+    case 'Left'
+     cell(1,p)=1
+       
+    case 'Right'
+        
+        cell(1,p)=2 
+   
+end
+end
+while ~isDone(vidReader)
+          vidFrame1=step(vidReader);
+     
+      I1=imresize(vidFrame1,[584 270]);
+% Convert RGB image to chosen color space
+I=I1;
+
+
+% Define thresholds for channel 1 based on histogram settings
+channel1Min = 0.503;
+channel1Max = 0.803;
+
+% Define thresholds for channel 2 based on histogram settis
+channel2Min = 0.506;
+channel2Max = 0.799;
+
+% Define thresholds for channel 3 based on histogram settings
+channel3Min = 0.497;
+channel3Max = 0.795;
+
+% Create mask based on chosen histogram thresholds
+sliderBW = (I(:,:,1) >= channel1Min ) & (I(:,:,1) <= channel1Max) & ...
+    (I(:,:,2) >= channel2Min ) & (I(:,:,2) <= channel2Max) & ...
+    (I(:,:,3) >= channel3Min ) & (I(:,:,3) <= channel3Max);
+BW = sliderBW;
+%%MORPHOLOGY
+DiskElement=strel('disk',5);
+Ibwopen=imopen(BW,DiskElement);
+%%BLOB AREA FIXATION
+Blob=vision.BlobAnalysis('MinimumBlobArea',100);
+[objArea,objCentroid,bboxout]=step(Blob,Ibwopen);
+%% U can block a paricular color using blob analysis,too, and make them black or white
+for i=1:60:270
+        if Ibwopen(100,i)==0 && Ibwopen(500,i)==0;
+            if cell(1,turn)==1
+          Ibwopen=imoverlay(Ibwopen,BWabove,'black');
+          Ibwopen=im2bw(Ibwopen);
+            elseif cell(1,turn)==2
+          Ibwopen=imoverlay(Ibwopen,BWdown,'black');
+          Ibwopen=im2bw(Ibwopen);
+             end
+         if(turn<num)
+             turn = turn + 1
+         end
+            
+             end
+             end
+             
+  
+          
+BW = edge(Ibwopen,'prewitt');
+DiskElement=strel('disk',1);
+BW1=imclose(BW,DiskElement);
+BW2=bwmorph(BW1,'bridge',inf);
+BW3=bwskel(BW2);
+[H,T,R]=hough(BW3);
+hPeaks=houghpeaks(H,5);
+hLines=houghlines(BW3,T,R,hPeaks,'FillGap',15,'MinLength',70);
+linePos = [];
+markerPos = [];
+markerSize = 5;
+for lidx = 1:length(hLines)
+    
+    linePos = [linePos;...
+               hLines(lidx).point1 hLines(lidx).point2];  
+    % Get linePos in [x1 y1;x2 y2...] format. 
+    markerPos = [markerPos;...
+                [hLines(lidx).point1 markerSize];...
+                [hLines(lidx).point2 markerSize]];
+    % Get markerPos in [x1 markerSize;y1 markerSize...] format. 
+end
+
+lineFrame=insertShape(I1,'line',linePos,...
+    'Color','yellow','LineWidth',5);
+step(vidPlayer,lineFrame)
+    
+
+end
