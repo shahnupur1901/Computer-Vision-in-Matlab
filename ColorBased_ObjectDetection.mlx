@@ -1,0 +1,38 @@
+vidReader=vision.VideoFileReader('jar.mp4','VideoOutputDataType','Double'); %reading video
+vidPlayer=vision.DeployableVideoPlayer;
+while ~isDone(vidReader)
+    vidFrame=step(vidReader);
+       I= rgb2hsv(vidFrame);
+    %%THRESHOLDING exported from Color Thresholder, should be done to decide which color object is to be detected   
+    % Define thresholds for channel 1 based on histogram settings
+    channel1Min = 0.424;
+    channel1Max = 0.665;
+
+    % Define thresholds for channel 2 based on histogram settings
+    channel2Min = 0.854;
+    channel2Max = 1.000;
+
+    % Define thresholds for channel 3 based on histogram settings
+    channel3Min = 0.000;
+    channel3Max = 0.629;
+
+    % Create mask based on chosen histogram thresholds
+    sliderBW = (I(:,:,1) >= channel1Min ) & (I(:,:,1) <= channel1Max) & ...
+    (I(:,:,2) >= channel2Min ) & (I(:,:,2) <= channel2Max) & ...
+    (I(:,:,3) >= channel3Min ) & (I(:,:,3) <= channel3Max);
+    BW = sliderBW;
+    
+    %%MORPHOLOGY
+    DiskElement=strel('disk',3);
+    Ibwopen=imopen(BW,DiskElement);
+    %%BLOB AREA FIXATION
+    
+    Blob=vision.BlobAnalysis('MinimumBlobArea',1000);
+    [objArea,objCentroid,bboxout]=step(Blob,Ibwopen);
+    %%Blob place
+    Ishape=insertShape(vidFrame,'rectangle',bboxout,'LineWidth',5);
+    step(vidPlayer,Ishape);
+end
+release(vidReader)
+release(vidPlayer)
+release(Blob)
